@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
 <meta name="description" content="Prototype of the comparative PFAS mass-input calculator for farmers, utilities, and regulators. Illustrative values only.">
 <title>PFAS Input Comparator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,20 +12,13 @@
 /* Layout: a two-column workbench. Left column asks and sets inputs; right column answers with
    numbers, charts and the computation record. Role switch reorders the answer panels. */
 :root{
+  color-scheme:light;
   --bg:#f4f6f3; --surface:#ffffff; --surface-2:#eceeea; --fg:#16201c; --muted:#5a655f; --line:#d5dbd6;
   --accent:#1c5cab; --accent-ink:#ffffff; --accent-soft:#dce9fa;
   --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --sbg:#8a918d;
   --good:#0ca30c; --warn:#fab219; --serious:#ec835a;
   --display:"Archivo",system-ui,sans-serif; --body:"Source Sans 3",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#131714; --surface:#1b201d; --surface-2:#232927; --fg:#edf1ee; --muted:#a4ada8; --line:#2f3733;
-  --accent:#5598e7; --accent-ink:#0b1b2e; --accent-soft:#1d3a5e;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --sbg:#737b77; color-scheme:dark } }
-:root[data-theme="dark"]{
-  --bg:#131714; --surface:#1b201d; --surface-2:#232927; --fg:#edf1ee; --muted:#a4ada8; --line:#2f3733;
-  --accent:#5598e7; --accent-ink:#0b1b2e; --accent-soft:#1d3a5e;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --sbg:#737b77; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;padding-inline:16px;padding-block:0 48px}
