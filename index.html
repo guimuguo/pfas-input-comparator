@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Prototype of the comparative PFAS mass-input calculator for farmers, utilities, and regulators. Illustrative values only.">
+<title>PFAS Input Comparator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a two-column workbench. Left column asks and sets inputs; right column answers with
+   numbers, charts and the computation record. Role switch reorders the answer panels. */
+:root{
+  --bg:#f4f6f3; --surface:#ffffff; --surface-2:#eceeea; --fg:#16201c; --muted:#5a655f; --line:#d5dbd6;
+  --accent:#1c5cab; --accent-ink:#ffffff; --accent-soft:#dce9fa;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --sbg:#8a918d;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a;
+  --display:"Archivo",system-ui,sans-serif; --body:"Source Sans 3",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#131714; --surface:#1b201d; --surface-2:#232927; --fg:#edf1ee; --muted:#a4ada8; --line:#2f3733;
+  --accent:#5598e7; --accent-ink:#0b1b2e; --accent-soft:#1d3a5e;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --sbg:#737b77; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#131714; --surface:#1b201d; --surface-2:#232927; --fg:#edf1ee; --muted:#a4ada8; --line:#2f3733;
+  --accent:#5598e7; --accent-ink:#0b1b2e; --accent-soft:#1d3a5e;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --sbg:#737b77; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;padding-inline:16px;padding-block:0 48px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(26px,3.4vw,36px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+button,select,input,textarea{font:inherit;color:inherit}
+.eyebrow{font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wrap{max-width:1180px;margin:0 auto}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px;padding-block:28px 20px;border-bottom:1px solid var(--line)}
+.proto{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13px;color:var(--muted)}
+.proto b{color:var(--fg);font-weight:600}
+.lede{max-width:62ch;color:var(--muted);margin-top:6px}
+.roles{margin-top:14px}
+.roles .eyebrow{display:block;margin-bottom:8px}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:720px){.seg{grid-template-columns:1fr}}
+.seg button{text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer;color:var(--fg);display:flex;flex-direction:column;gap:2px;min-width:0;position:relative}
+.seg button:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
+.seg button{transition:border-color .15s,box-shadow .15s,transform .15s;padding-right:40px}
+.seg button::before{content:"";position:absolute;top:10px;right:10px;width:18px;height:18px;border-radius:50%;border:2px solid var(--muted);background:var(--surface)}
+.seg button[aria-pressed="true"]::before{border-color:var(--accent);background:var(--accent)}
+.seg button[aria-pressed="true"]::after{content:"";position:absolute;top:14px;right:16px;width:5px;height:9px;border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.seg button{transition:none}.seg button:hover{transform:none}}
+.seg button .rn{font-family:var(--display);font-size:15px;font-weight:700}
+.seg button .rq{font-size:12.5px;color:var(--muted);line-height:1.3}
+.seg button .rg{font-size:11.5px;color:var(--muted);margin-top:2px}
+.seg button .rg b{color:var(--fg);font-weight:600}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+main{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:24px;padding-top:24px}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}
+.hint{font-size:13px;color:var(--muted)}
+
+/* Ask */
+textarea{width:100%;min-height:78px;resize:vertical;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;line-height:1.4}
+textarea:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.askrow{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.examples{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.examples button{text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:14px;line-height:1.35}
+.examples button:hover{border-color:var(--accent)}
+.transcript{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.msg{border-radius:10px;padding:10px 12px;font-size:15px}
+.msg.user{background:var(--accent-soft);align-self:flex-end;max-width:95%}
+.msg.sys{background:var(--surface-2);border:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}
+.chip{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+.chip.def{color:var(--muted);border-style:dashed}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block}
+.badge.redirect i{background:var(--serious)}
+
+/* Inputs form */
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:13px;color:var(--muted);font-weight:600}
+.field select,.field input{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+.field.full{grid-column:1/-1}
+.unit{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+/* Results */
+.question{font-family:var(--display);font-size:20px;font-weight:600;line-height:1.3}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+@media (max-width:620px){.tiles{grid-template-columns:1fr}}
+.tile{background:var(--surface-2);border-radius:8px;padding:12px 14px;min-width:0}
+.tile .k{font-size:13px;color:var(--muted)}
+.tile .v{font-family:var(--mono);font-size:26px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
+.tile .v small{font-size:13px;color:var(--muted);font-weight:400;margin-left:4px;font-family:var(--body)}
+.tile .r{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:4px}
+.chart{width:100%;height:auto;display:block;margin-top:8px}
+.chart text{font-family:var(--body);font-size:12.5px;fill:var(--muted)}
+.chart .lbl{fill:var(--fg)}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{stroke:var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+details{margin-top:8px}
+summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:14px;margin-top:8px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12.5px;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap}
+.status i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.tip{position:fixed;pointer-events:none;background:var(--fg);color:var(--bg);font-size:12.5px;padding:6px 8px;border-radius:6px;transform:translate(-50%,-120%);white-space:nowrap;z-index:9}
+.tip[hidden]{display:none}
+.howrow{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.howrow>div{min-width:0}
+#tbl-params td:last-child{white-space:normal;min-width:12ch}
+.eq{font-family:var(--mono);font-size:13px;background:var(--surface-2);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre-wrap;line-height:1.5}
+.note{font-size:13.5px;color:var(--muted);margin-top:8px}
+.scope{border-top:1px solid var(--line);margin-top:28px;padding-top:16px;font-size:13.5px;color:var(--muted);max-width:80ch}
+.scope b{color:var(--fg)}
+/* role ordering */
+body[data-role="farmer"] #p-utility,body[data-role="farmer"] #p-regulator{order:5}
+body[data-role="utility"] #p-utility{order:1}
+body[data-role="regulator"] #p-regulator{order:1}
+#p-main{order:2}#p-how{order:9}
+@media (prefers-reduced-motion:no-preference){.panel{transition:border-color .2s}}
+</style>
+
+
+<style>html,body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <span class="proto"><b>Prototype</b> illustrative values, not project results</span>
+    <h1 style="margin-top:10px">PFAS Input Comparator</h1>
+    <p class="lede">Compares PFAS mass input and soil accumulation across agricultural inputs, with the uncertainty behind every number. One calculator, three audiences: each role gets its own question, examples, and view of the results.</p>
+  </div>
+  <div class="roles" style="flex-basis:100%">
+    <span class="eyebrow">Switch view: who is asking?</span>
+    <div class="seg" role="group" aria-label="Choose your role">
+      <button type="button" id="role-farmer" aria-pressed="true" data-role="farmer"><span class="rn">Farmer</span><span class="rq">Which input adds the least PFAS, and how much builds up?</span><span class="rg"><b>Gets:</b> comparison, accumulation curve, plain answer</span></button>
+      <button type="button" id="role-utility" aria-pressed="false" data-role="utility"><span class="rn">Utility</span><span class="rq">If biosolids are restricted, how much input remains?</span><span class="rg"><b>Gets:</b> source shares before and after, with ranges</span></button>
+      <button type="button" id="role-regulator" aria-pressed="false" data-role="regulator"><span class="rn">Regulator</span><span class="rq">Which inputs and site conditions to prioritize?</span><span class="rg"><b>Gets:</b> priority table, evidence strength, site factors</span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="col">
+  <section class="panel" id="p-ask">
+    <div class="panel-head"><h2>Ask a question</h2><span class="hint">Mapped to calculator inputs</span></div>
+    <textarea id="q" placeholder="Example: If I switch from biosolids to compost on a sandy field, how much PFAS builds up in 20 years?"></textarea>
+    <div class="askrow"><button class="btn" id="ask" type="button">Ask</button><span class="hint">Numbers come from the calculator, never from a language model.</span></div>
+    <div class="examples" id="examples"></div>
+    <div class="transcript" id="transcript"></div>
+  </section>
+
+  <section class="panel" id="p-inputs">
+    <div class="panel-head"><h2>Calculator inputs</h2><span class="hint">Edit any value</span></div>
+    <form class="form" id="form">
+      <div class="field full"><label for="amend">Input to evaluate</label>
+        <select id="amend"><option value="biosolids">Biosolids (Class B cake)</option><option value="compost">Food-waste compost</option><option value="manure">Dairy manure</option><option value="fertilizer">Synthetic fertilizer</option></select></div>
+      <div class="field"><label for="rate">Application rate <span class="unit">dry t/ha/yr</span></label><input id="rate" type="number" min="0" step="0.1" value="5"></div>
+      <div class="field"><label for="years">Years of application</label><input id="years" type="number" min="1" max="50" step="1" value="20"></div>
+      <div class="field"><label for="soil">Soil class</label>
+        <select id="soil"><option value="sandy">Sandy, low organic carbon</option><option value="loam" selected>Loam, moderate organic carbon</option><option value="clay">Clay-rich, high organic carbon</option></select></div>
+      <div class="field"><label for="irrig">Irrigation source</label>
+        <select id="irrig"><option value="none">Rain-fed</option><option value="ground" selected>Groundwater</option><option value="surface">Surface water</option><option value="reclaimed">Reclaimed water</option></select></div>
+      <div class="field full"><label for="repl">If biosolids are restricted, replace with</label>
+        <select id="repl"><option value="compost">Food-waste compost at 10 dry t/ha/yr</option><option value="manure">Dairy manure at 15 dry t/ha/yr</option><option value="fertilizer">Synthetic fertilizer at 0.4 dry t/ha/yr</option></select></div>
+    </form>
+  </section>
+</div>
+
+<div class="col" id="results">
+  <section class="panel" id="p-main">
+    <p class="eyebrow" id="role-eyebrow">For farmers</p>
+    <p class="question" id="question">Which input adds the least PFAS to my field, and how much builds up over time?</p>
+    <div class="tiles">
+      <div class="tile"><div class="k">Annual PFAS mass input</div><div class="v" id="t-input"></div><div class="r" id="t-input-r"></div></div>
+      <div class="tile"><div class="k" id="t-soil-k">Topsoil concentration after 20 years</div><div class="v" id="t-soil"></div><div class="r" id="t-soil-r"></div></div>
+      <div class="tile"><div class="k">Share from the selected input</div><div class="v" id="t-share"></div><div class="r" id="t-share-r"></div></div>
+    </div>
+
+    <h3 style="margin-top:22px">Annual mass input by input type, at typical application rates</h3>
+    <p class="hint">Median with 5th to 95th percentile range, mg of target PFAS per hectare per year. Selected input highlighted.</p>
+    <svg class="chart" id="c-compare" viewBox="0 0 720 230" role="img" aria-label="Annual PFAS mass input by input type"></svg>
+    <details><summary>Table view</summary><div class="tblwrap" id="tbl-compare"></div></details>
+
+    <h3 style="margin-top:22px">Topsoil accumulation over 20 years</h3>
+    <p class="hint">Median line with 5th to 95th percentile band for the selected input and site. Other inputs shown as thin lines at their typical rates.</p>
+    <svg class="chart" id="c-accum" viewBox="0 0 720 260" role="img" aria-label="Topsoil PFAS concentration over 20 years"></svg>
+    <div class="legend" id="leg-accum"></div>
+    <details><summary>Table view</summary><div class="tblwrap" id="tbl-accum"></div></details>
+  </section>
+
+  <section class="panel" id="p-utility">
+    <p class="eyebrow">For utilities</p>
+    <p class="question">If biosolids land application is restricted, how much PFAS input remains from other sources?</p>
+    <svg class="chart" id="c-share" viewBox="0 0 720 150" role="img" aria-label="Share of annual PFAS input by source, current versus restricted"></svg>
+    <div class="legend" id="leg-share"></div>
+    <p class="note" id="share-note"></p>
+    <details><summary>Table view</summary><div class="tblwrap" id="tbl-share"></div></details>
+  </section>
+
+  <section class="panel" id="p-regulator">
+    <p class="eyebrow">For regulators</p>
+    <p class="question">Which inputs and site conditions should be prioritized for monitoring?</p>
+    <div class="tblwrap"><table id="tbl-priority"><thead><tr><th>Input</th><th class="num">Median input<br>mg/ha/yr</th><th class="num">90% range</th><th class="num">Records</th><th>Evidence</th><th>Main data gap</th></tr></thead><tbody></tbody></table></div>
+    <h3 style="margin-top:18px">Site factors governing retention in topsoil</h3>
+    <p class="hint">Relative importance from the hierarchical model. Illustrative ranking for the prototype.</p>
+    <svg class="chart" id="c-factors" viewBox="0 0 720 190" role="img" aria-label="Relative importance of site factors"></svg>
+  </section>
+
+  <section class="panel" id="p-how">
+    <div class="panel-head"><h2>How these numbers were computed</h2><span class="hint">Every output traces to this record</span></div>
+    <div class="howrow">
+      <div>
+        <h3>Mass balance</h3>
+        <div class="eq" id="eq"></div>
+        <p class="note">Concentrations are drawn from lognormal distributions fitted to the occurrence database. Retention in the top 15 cm depends on soil class. 1,500 Monte Carlo draws per result.</p>
+      </div>
+      <div>
+        <h3>Parameters used</h3>
+        <div class="tblwrap"><table id="tbl-params"><thead><tr><th>Parameter</th><th class="num">Median</th><th class="num">Spread</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+    <h3 style="margin-top:16px">Where the uncertainty comes from</h3>
+    <svg class="chart" id="c-unc" viewBox="0 0 720 110" role="img" aria-label="Share of output variance by source"></svg>
+    <p class="note">Share of variance in the selected result. The sampling design in the project targets the largest term first.</p>
+  </section>
+</div>
+</main>
+
+<p class="scope"><b>Scope.</b> This prototype shows the intended form of the comparative mass-input calculator: mass input and environmental fate, with uncertainty and a full computation record. It does not estimate exposure or health risk, and it does not state whether a field or product complies with any regulation. Values are illustrative placeholders standing in for the project database and models.</p>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function(){
+'use strict';
+/* ---------- illustrative parameters (placeholders for project data) ---------- */
+const INPUTS = {
+  biosolids:{label:'Biosolids', short:'Biosolids', med:25, gsd:2.5, rate:5, slot:1, records:412, gap:'Few lifecycle-stage samples; precursor fraction rarely reported'},
+  compost:{label:'Food-waste compost', short:'Compost', med:6, gsd:2.5, rate:10, slot:2, records:138, gap:'Feedstock rarely documented; wide between-facility variance'},
+  manure:{label:'Dairy manure', short:'Manure', med:1.2, gsd:2.2, rate:15, slot:3, records:97, gap:'Feed and bedding sources unmeasured; regional coverage thin'},
+  fertilizer:{label:'Synthetic fertilizer', short:'Fertilizer', med:0.3, gsd:3.0, rate:0.4, slot:4, records:41, gap:'Manufacturing pathway and coatings almost unstudied'}
+};
+const IRRIG = { none:{label:'Rain-fed', med:0, gsd:1}, ground:{label:'Groundwater', med:3, gsd:2.0}, surface:{label:'Surface water', med:6, gsd:2.0}, reclaimed:{label:'Reclaimed water', med:25, gsd:1.8} }; // ng/L
+const IRRIG_VOL = 4000; // m3/ha/yr applied
+const DEPOSITION = {med:0.4, gsd:2.0}; // mg/ha/yr
+const SOIL = { sandy:{label:'Sandy', ret:0.50, sd:0.10}, loam:{label:'Loam', ret:0.70, sd:0.08}, clay:{label:'Clay-rich', ret:0.85, sd:0.06} };
+const SOIL_MASS = 1950; // t/ha in top 15 cm at 1.3 g/cm3
+const N = 1500;
+const SLOT = {1:'--s1',2:'--s2',3:'--s3',4:'--s4'};
+
+/* ---------- deterministic RNG so the page reads the same on every load ---------- */
+function rng(seed){ let s=seed>>>0; return function(){ s=(s+0x6D2B79F5)>>>0; let t=s; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
+function normal(r){ let u=0,v=0; while(u===0)u=r(); while(v===0)v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function pct(a,p){ const s=a.slice().sort((x,y)=>x-y); const i=(s.length-1)*p; const lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); }
+const draws = (med,gsd,r)=>{ const out=new Float64Array(N); const ln=Math.log(gsd); for(let i=0;i<N;i++) out[i]=med*Math.exp(ln*normal(r)); return out; };
+
+/* ---------- model ---------- */
+function state(){
+  return { amend:$('amend').value, rate:+$('rate').value||0, years:Math.max(1,Math.min(50,+$('years').value||20)), soil:$('soil').value, irrig:$('irrig').value, repl:$('repl').value };
+}
+function simulate(st){
+  const r=rng(20260414);
+  const a=INPUTS[st.amend];
+  const conc=draws(a.med,a.gsd,r);                       // ng/g
+  const inp=new Float64Array(N); for(let i=0;i<N;i++) inp[i]=conc[i]*st.rate; // mg/ha/yr
+  const irr=IRRIG[st.irrig]; const irrD = irr.med>0? draws(irr.med,irr.gsd,r):new Float64Array(N);
+  const irrIn=new Float64Array(N); for(let i=0;i<N;i++) irrIn[i]=irrD[i]*IRRIG_VOL/1000; // ng/L*m3 -> mg
+  const dep=draws(DEPOSITION.med,DEPOSITION.gsd,r);
+  const so=SOIL[st.soil]; const ret=new Float64Array(N); for(let i=0;i<N;i++) ret[i]=Math.min(1,Math.max(0.05,so.ret+so.sd*normal(r)));
+  const total=new Float64Array(N), soilC=new Float64Array(N), share=new Float64Array(N);
+  for(let i=0;i<N;i++){ total[i]=inp[i]+irrIn[i]+dep[i]; soilC[i]=total[i]*st.years*ret[i]/SOIL_MASS; share[i]=inp[i]/total[i]; }
+  // variance decomposition (illustrative: log-variance contributions)
+  const lv=x=>{ const l=Array.from(x,v=>Math.log(Math.max(v,1e-9))); const m=l.reduce((s,v)=>s+v,0)/l.length; return l.reduce((s,v)=>s+(v-m)*(v-m),0)/l.length; };
+  const vConc=lv(conc), vBg=lv(Float64Array.from(irrIn,(v,i)=>v+dep[i])), vRet=lv(ret);
+  const vs=vConc+vBg+vRet;
+  return { conc, inp, total, soilC, share, ret,
+    p:{ inp:[pct(inp,.05),pct(inp,.5),pct(inp,.95)], total:[pct(total,.05),pct(total,.5),pct(total,.95)], soil:[pct(soilC,.05),pct(soilC,.5),pct(soilC,.95)], share:[pct(share,.05),pct(share,.5),pct(share,.95)] },
+    unc:[{k:'Input concentration',v:vConc/vs},{k:'Background (irrigation, deposition)',v:vBg/vs},{k:'Soil retention',v:vRet/vs}] };
+}
+function inputAtTypical(key, soilKey){ // per-input annual mass input at typical rate, plus topsoil 20-yr median path
+  const r=rng(777+key.length); const a=INPUTS[key]; const c=draws(a.med,a.gsd,r);
+  const inp=Float64Array.from(c,v=>v*a.rate);
+  return {inp, p:[pct(inp,.05),pct(inp,.5),pct(inp,.95)]};
+}
+function shareScenarios(st){
+  const r=rng(99);
+  const mk=(key,rate)=>{ const a=INPUTS[key]; return Float64Array.from(draws(a.med,a.gsd,r),v=>v*rate); };
+  const irr=IRRIG[st.irrig]; const irrIn= irr.med>0? Float64Array.from(draws(irr.med,irr.gsd,r),v=>v*IRRIG_VOL/1000):new Float64Array(N);
+  const dep=draws(DEPOSITION.med,DEPOSITION.gsd,r);
+  const bio=mk('biosolids',INPUTS.biosolids.rate); const rep=mk(st.repl,INPUTS[st.repl].rate);
+  const med=x=>pct(x,.5);
+  const cur={ Biosolids:med(bio), [INPUTS[st.repl].short]:0, Irrigation:med(irrIn), Deposition:med(dep) };
+  const res={ Biosolids:0, [INPUTS[st.repl].short]:med(rep), Irrigation:med(irrIn), Deposition:med(dep) };
+  const tot=x=>Object.values(x).reduce((s,v)=>s+v,0);
+  const curT=Float64Array.from(bio,(v,i)=>v+irrIn[i]+dep[i]), resT=Float64Array.from(rep,(v,i)=>v+irrIn[i]+dep[i]);
+  const remain=Float64Array.from(resT,(v,i)=>v/curT[i]);
+  return {cur,res,curT:[pct(curT,.05),pct(curT,.5),pct(curT,.95)],resT:[pct(resT,.05),pct(resT,.5),pct(resT,.95)],remain:[pct(remain,.05),pct(remain,.5),pct(remain,.95)],replKey:st.repl};
+}
+
+/* ---------- formatting ---------- */
+const $=id=>document.getElementById(id);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function fmt(x){ if(x>=100) return Math.round(x).toLocaleString(); if(x>=10) return x.toFixed(1); if(x>=1) return x.toFixed(2); return x.toFixed(3).replace(/0+$/,'').replace(/\.$/,''); }
+const pc=x=>Math.round(x*100)+'%';
+
+/* ---------- charts (inline SVG) ---------- */
+const svgNS='http://www.w3.org/2000/svg';
+function el(n,attrs,txt){ const e=document.createElementNS(svgNS,n); for(const k in attrs) e.setAttribute(k,attrs[k]); if(txt!=null) e.textContent=txt; return e; }
+const tip=$('tip');
+function hover(node,text){ node.addEventListener('mousemove',e=>{tip.textContent=text;tip.hidden=false;tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';}); node.addEventListener('mouseleave',()=>{tip.hidden=true;}); }
+function niceMax(v){ const p=Math.pow(10,Math.floor(Math.log10(v))); const m=v/p; const n = m<=1?1:m<=2?2:m<=5?5:10; return n*p; }
+
+function drawCompare(rows, selected){
+  const svg=$('c-compare'); svg.innerHTML='';
+  const W=720,H=230, L=150, R=30, T=16, rowH=46;
+  const max=niceMax(Math.max(...rows.map(r=>r.p[2]))*1.05);
+  const x=v=>L+(v/max)*(W-L-R);
+  // grid
+  const ticks=5; for(let i=0;i<=ticks;i++){ const v=max*i/ticks; svg.appendChild(el('line',{x1:x(v),x2:x(v),y1:T,y2:T+rows.length*rowH,class:'grid'})); svg.appendChild(el('text',{x:x(v),y:T+rows.length*rowH+18,'text-anchor':'middle'},fmt(v))); }
+  svg.appendChild(el('text',{x:W-R,y:T+rows.length*rowH+34,'text-anchor':'end'},'mg PFAS / ha / yr'));
+  rows.forEach((r,i)=>{
+    const y=T+i*rowH+rowH/2; const col=`var(${SLOT[r.slot]})`; const sel=r.key===selected;
+    svg.appendChild(el('text',{x:L-12,y:y+4,'text-anchor':'end',class:'lbl','font-weight':sel?'600':'400'},r.label));
+    const bar=el('rect',{x:x(0),y:y-7,width:Math.max(2,x(r.p[1])-x(0)),height:14,rx:4,fill:col,'fill-opacity':sel?1:0.45});
+    svg.appendChild(bar);
+    svg.appendChild(el('line',{x1:x(r.p[0]),x2:x(r.p[2]),y1:y,y2:y,stroke:'var(--fg)','stroke-width':1.5}));
+    svg.appendChild(el('line',{x1:x(r.p[0]),x2:x(r.p[0]),y1:y-5,y2:y+5,stroke:'var(--fg)','stroke-width':1.5}));
+    svg.appendChild(el('line',{x1:x(r.p[2]),x2:x(r.p[2]),y1:y-5,y2:y+5,stroke:'var(--fg)','stroke-width':1.5}));
+    svg.appendChild(el('text',{x:x(r.p[2])+8,y:y+4,class:'lbl','font-family':'var(--mono)','font-size':'12px'},fmt(r.p[1])));
+    const hit=el('rect',{x:L,y:y-rowH/2,width:W-L-R,height:rowH,fill:'transparent'});
+    hover(hit,`${r.label}: median ${fmt(r.p[1])}, range ${fmt(r.p[0])} to ${fmt(r.p[2])} mg/ha/yr at ${r.rate} dry t/ha/yr`);
+    svg.appendChild(hit);
+  });
+  $('tbl-compare').innerHTML='<table><thead><tr><th>Input</th><th class="num">Rate dry t/ha/yr</th><th class="num">5th</th><th class="num">Median</th><th class="num">95th</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${r.label}</td><td class="num">${r.rate}</td><td class="num">${fmt(r.p[0])}</td><td class="num">${fmt(r.p[1])}</td><td class="num">${fmt(r.p[2])}</td></tr>`).join('')+'</tbody></table>';
+}
+
+function drawAccum(sim, st, others){
+  const svg=$('c-accum'); svg.innerHTML='';
+  const W=720,H=260,L=56,R=20,T=14,B=40; const yrs=20;
+  const yearsSel=st.years;
+  const pathP=(p)=>t=>p*t*1; // linear in t for per-draw constant input
+  const selMed=sim.p.soil[1]/st.years, selLo=sim.p.soil[0]/st.years, selHi=sim.p.soil[2]/st.years;
+  const otherMed=others.map(o=>o.med);
+  const max=niceMax(Math.max(selHi*yrs, ...otherMed.map(m=>m*yrs))*1.08);
+  const x=t=>L+(t/yrs)*(W-L-R), y=v=>T+(1-v/max)*(H-T-B);
+  for(let i=0;i<=4;i++){ const v=max*i/4; svg.appendChild(el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),class:'grid'})); svg.appendChild(el('text',{x:L-8,y:y(v)+4,'text-anchor':'end'},fmt(v))); }
+  for(let t=0;t<=yrs;t+=5){ svg.appendChild(el('text',{x:x(t),y:H-B+18,'text-anchor':'middle'},'Year '+t)); }
+  svg.appendChild(el('text',{x:L,y:H-4},'ng PFAS / g dry topsoil (0 to 15 cm)'));
+  // band
+  const band=`M${x(0)},${y(0)} L${x(yrs)},${y(selLo*yrs)} L${x(yrs)},${y(selHi*yrs)} Z`;
+  svg.appendChild(el('path',{d:band,fill:`var(${SLOT[INPUTS[st.amend].slot]})`,'fill-opacity':0.16}));
+  others.forEach(o=>{ svg.appendChild(el('line',{x1:x(0),y1:y(0),x2:x(yrs),y2:y(o.med*yrs),stroke:`var(${SLOT[o.slot]})`,'stroke-width':1.5,'stroke-opacity':0.6})); });
+  svg.appendChild(el('line',{x1:x(0),y1:y(0),x2:x(yrs),y2:y(selMed*yrs),stroke:`var(${SLOT[INPUTS[st.amend].slot]})`,'stroke-width':2.5}));
+  // marker at chosen years
+  const ty=Math.min(yrs,yearsSel);
+  const dot=el('circle',{cx:x(ty),cy:y(selMed*ty),r:5,fill:`var(${SLOT[INPUTS[st.amend].slot]})`,stroke:'var(--surface)','stroke-width':2});
+  svg.appendChild(dot);
+  svg.appendChild(el('text',{x:x(ty)-10,y:y(selMed*ty)-10,'text-anchor':'end',class:'lbl','font-family':'var(--mono)','font-size':'12px'},`${fmt(selMed*ty)} ng/g at year ${ty}`));
+  // crosshair hover
+  const hit=el('rect',{x:L,y:T,width:W-L-R,height:H-T-B,fill:'transparent'});
+  const vline=el('line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'var(--muted)','stroke-dasharray':'3 3',opacity:0});
+  svg.appendChild(vline);
+  hit.addEventListener('mousemove',e=>{ const r=svg.getBoundingClientRect(); const px=(e.clientX-r.left)/r.width*W; const t=Math.max(0,Math.min(yrs,Math.round((px-L)/(W-L-R)*yrs))); vline.setAttribute('x1',x(t)); vline.setAttribute('x2',x(t)); vline.setAttribute('opacity',1); tip.textContent=`Year ${t}: ${INPUTS[st.amend].short} ${fmt(selMed*t)} ng/g (${fmt(selLo*t)} to ${fmt(selHi*t)})`; tip.hidden=false; tip.style.left=e.clientX+'px'; tip.style.top=e.clientY+'px'; });
+  hit.addEventListener('mouseleave',()=>{ vline.setAttribute('opacity',0); tip.hidden=true; });
+  svg.appendChild(hit);
+  $('leg-accum').innerHTML=[INPUTS[st.amend],...others.map(o=>INPUTS[o.key])].map((a,i)=>`<span><i class="sw" style="background:var(${SLOT[a.slot]});${i?'opacity:.6':''}"></i>${a.label}${i?' (typical rate)':' (selected)'}</span>`).join('');
+  $('tbl-accum').innerHTML='<table><thead><tr><th>Year</th><th class="num">5th</th><th class="num">Median</th><th class="num">95th</th></tr></thead><tbody>'+[1,5,10,20].map(t=>`<tr><td>${t}</td><td class="num">${fmt(selLo*t)}</td><td class="num">${fmt(selMed*t)}</td><td class="num">${fmt(selHi*t)}</td></tr>`).join('')+'</tbody></table>';
+}
+
+function drawShare(sc){
+  const svg=$('c-share'); svg.innerHTML='';
+  const W=720,L=120,R=20,T=12,rowH=52;
+  const keys=Object.keys(sc.cur); const colors={Biosolids:'var(--s1)',Irrigation:'var(--sbg)',Deposition:'var(--muted)'}; colors[INPUTS[sc.replKey].short]=`var(${SLOT[INPUTS[sc.replKey].slot]})`;
+  const scen=[{name:'Current practice',d:sc.cur,t:sc.curT},{name:'Biosolids restricted',d:sc.res,t:sc.resT}];
+  const max=niceMax(Math.max(sc.curT[1],sc.resT[1])*1.1);
+  const x=v=>L+(v/max)*(W-L-R);
+  scen.forEach((s,i)=>{
+    const y=T+i*rowH+rowH/2; let acc=0;
+    svg.appendChild(el('text',{x:L-10,y:y+4,'text-anchor':'end',class:'lbl'},s.name));
+    keys.forEach(k=>{ const v=s.d[k]; if(v<=0) return; const seg=el('rect',{x:x(acc)+(acc?1:0),y:y-10,width:Math.max(0,x(acc+v)-x(acc)-(acc?1:0)),height:20,fill:colors[k],rx:acc===0?3:0}); hover(seg,`${s.name}: ${k} ${fmt(v)} mg/ha/yr (${pc(v/s.t[1])})`); svg.appendChild(seg); acc+=v; });
+    svg.appendChild(el('text',{x:x(acc)+8,y:y+4,class:'lbl','font-family':'var(--mono)','font-size':'12px'},`${fmt(s.t[1])} (${fmt(s.t[0])} to ${fmt(s.t[2])})`));
+  });
+  svg.appendChild(el('text',{x:W-R,y:T+2*rowH+20,'text-anchor':'end'},'mg PFAS / ha / yr, median and 5th to 95th'));
+  $('leg-share').innerHTML=keys.map(k=>`<span><i class="sw" style="background:${colors[k]}"></i>${k}</span>`).join('');
+  const rem=sc.remain;
+  $('share-note').textContent=`Restricting biosolids and replacing them with ${INPUTS[sc.replKey].label.toLowerCase()} leaves ${pc(rem[1])} of the current annual input (${pc(rem[0])} to ${pc(rem[2])}). Of what remains, ${pc(sc.res[INPUTS[sc.replKey].short]/sc.resT[1])} comes from the replacement input and the rest from irrigation water and deposition.`;
+  $('tbl-share').innerHTML='<table><thead><tr><th>Source</th><th class="num">Current</th><th class="num">Restricted</th></tr></thead><tbody>'+keys.map(k=>`<tr><td>${k}</td><td class="num">${fmt(sc.cur[k])}</td><td class="num">${fmt(sc.res[k])}</td></tr>`).join('')+`<tr><td><b>Total (median)</b></td><td class="num">${fmt(sc.curT[1])}</td><td class="num">${fmt(sc.resT[1])}</td></tr></tbody></table>`;
+}
+
+function drawFactors(){
+  const svg=$('c-factors'); svg.innerHTML='';
+  const rows=[['Soil organic carbon',.34],['Water-table depth',.22],['Clay content',.15],['Application history',.14],['Soil pH',.08],['Irrigation volume',.07]];
+  const W=720,L=170,R=50,T=8,rowH=28; const x=v=>L+v/0.4*(W-L-R);
+  rows.forEach((r,i)=>{ const y=T+i*rowH+rowH/2; svg.appendChild(el('text',{x:L-10,y:y+4,'text-anchor':'end',class:'lbl'},r[0])); const b=el('rect',{x:x(0),y:y-7,width:x(r[1])-x(0),height:14,rx:4,fill:'var(--accent)'}); hover(b,`${r[0]}: ${pc(r[1])} of explained variance`); svg.appendChild(b); svg.appendChild(el('text',{x:x(r[1])+8,y:y+4,class:'lbl','font-family':'var(--mono)','font-size':'12px'},pc(r[1]))); });
+}
+
+function drawUnc(sim){
+  const svg=$('c-unc'); svg.innerHTML='';
+  const W=720,L=16,R=16,T=10,h=22; const x=v=>L+v*(W-L-R); let acc=0; const cols=['var(--s1)','var(--sbg)','var(--s3)'];
+  sim.unc.forEach((u,i)=>{ const seg=el('rect',{x:x(acc)+(acc?1:0),y:T,width:Math.max(0,x(acc+u.v)-x(acc)-(acc?1:0)),height:h,fill:cols[i],rx:3}); hover(seg,`${u.k}: ${pc(u.v)}`); svg.appendChild(seg); acc+=u.v; });
+  acc=0; sim.unc.forEach((u,i)=>{ const cx=x(acc+u.v/2); svg.appendChild(el('text',{x:cx,y:T+h+20,'text-anchor':'middle',class:'lbl'},u.k)); svg.appendChild(el('text',{x:cx,y:T+h+38,'text-anchor':'middle','font-family':'var(--mono)','font-size':'12px'},pc(u.v))); acc+=u.v; });
+}
+
+/* ---------- render ---------- */
+let last=null;
+function render(){
+  const st=state(); const sim=simulate(st); last={st,sim};
+  const a=INPUTS[st.amend];
+  $('t-input').innerHTML=`${fmt(sim.p.inp[1])}<small>mg/ha/yr</small>`; $('t-input-r').textContent=`90% range ${fmt(sim.p.inp[0])} to ${fmt(sim.p.inp[2])} · ${a.short} at ${st.rate} dry t/ha/yr`;
+  $('t-soil-k').textContent=`Topsoil concentration after ${st.years} year${st.years>1?'s':''}`;
+  $('t-soil').innerHTML=`${fmt(sim.p.soil[1])}<small>ng/g</small>`; $('t-soil-r').textContent=`90% range ${fmt(sim.p.soil[0])} to ${fmt(sim.p.soil[2])} · ${SOIL[st.soil].label} soil, retains ~${pc(SOIL[st.soil].ret)}`;
+  $('t-share').innerHTML=`${pc(sim.p.share[1])}`; $('t-share-r').textContent=`Rest from ${IRRIG[st.irrig].label.toLowerCase()} irrigation and deposition`;
+  const rows=Object.keys(INPUTS).map(k=>{ const o=inputAtTypical(k); return {key:k,label:INPUTS[k].label,rate:INPUTS[k].rate,slot:INPUTS[k].slot,p:o.p}; }).sort((p,q)=>q.p[1]-p.p[1]);
+  drawCompare(rows, st.amend);
+  const others=Object.keys(INPUTS).filter(k=>k!==st.amend).map(k=>{ const o=inputAtTypical(k); const r=rng(5); return {key:k,slot:INPUTS[k].slot,med:(o.p[1]+ (IRRIG[st.irrig].med*IRRIG_VOL/1000)+DEPOSITION.med)*SOIL[st.soil].ret/SOIL_MASS}; });
+  drawAccum(sim, st, others);
+  drawShare(shareScenarios(st));
+  // priority table
+  const tb=$('tbl-priority').querySelector('tbody'); tb.innerHTML=rows.map(r=>{ const rec=INPUTS[r.key].records; const ev=rec>=200?['Strong','var(--good)']:rec>=80?['Moderate','var(--warn)']:['Limited','var(--serious)']; return `<tr><td>${r.label}</td><td class="num">${fmt(r.p[1])}</td><td class="num">${fmt(r.p[0])} to ${fmt(r.p[2])}</td><td class="num">${rec}</td><td><span class="status"><i style="background:${ev[1]}"></i>${ev[0]}</span></td><td>${INPUTS[r.key].gap}</td></tr>`; }).join('');
+  drawFactors();
+  drawUnc(sim);
+  $('eq').textContent=`annual input [mg/ha/yr] = concentration [ng/g dry] × rate [dry t/ha/yr]\n                      + irrigation [ng/L] × ${IRRIG_VOL} m3/ha ÷ 1000 + deposition [mg/ha/yr]\ntopsoil conc [ng/g]   = annual input × years × retention(soil) ÷ ${SOIL_MASS} t/ha\n\n${a.short}: ${a.med} ng/g × ${st.rate} t/ha → median ${fmt(sim.p.inp[1])} mg/ha/yr\n${st.years} yr × ${SOIL[st.soil].label.toLowerCase()} retention ${SOIL[st.soil].ret} → ${fmt(sim.p.soil[1])} ng/g`;
+  const pt=$('tbl-params').querySelector('tbody');
+  pt.innerHTML=[
+    [`${a.label} concentration`,`${a.med} ng/g`,`GSD ${a.gsd}`,`Occurrence database, ${a.records} records`],
+    [`${IRRIG[st.irrig].label} PFAS`,`${IRRIG[st.irrig].med} ng/L`,IRRIG[st.irrig].med?`GSD ${IRRIG[st.irrig].gsd}`:'none',IRRIG[st.irrig].med?'Occurrence database, water records':'no irrigation input'],
+    ['Atmospheric deposition',`${DEPOSITION.med} mg/ha/yr`,`GSD ${DEPOSITION.gsd}`,'Literature, regional monitoring'],
+    [`Retention, ${SOIL[st.soil].label.toLowerCase()} soil`,`${SOIL[st.soil].ret}`,`SD ${SOIL[st.soil].sd}`,'Hierarchical model, Activity 3.3'],
+    ['Topsoil mass, 0 to 15 cm',`${SOIL_MASS} t/ha`,'fixed','Bulk density 1.3 g/cm3']
+  ].map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td>${r[3]}</td></tr>`).join('');
+}
+
+/* ---------- roles ---------- */
+const ROLE={
+  farmer:{eyebrow:'For farmers',q:'Which input adds the least PFAS to my field, and how much builds up over time?',ex:[
+    'If I switch from biosolids to compost on a sandy field, how much PFAS builds up in 20 years?',
+    'Which amendment adds the least PFAS per year at normal rates?',
+    'I spread 15 t/ha of dairy manure on loam and irrigate from a well. What is my soil concentration after 10 years?',
+    'Is my field safe to grow vegetables?']},
+  utility:{eyebrow:'For utilities',q:'If biosolids land application is restricted, how much PFAS input remains from other sources?',ex:[
+    'If biosolids are banned and farms switch to compost, what share of PFAS input remains?',
+    'Compare biosolids at 5 t/ha with reclaimed-water irrigation on clay soil over 20 years.',
+    'How much of the annual input comes from irrigation water rather than the amendment?',
+    'Will restricting biosolids make the county compliant?']},
+  regulator:{eyebrow:'For regulators',q:'Which inputs and site conditions should be prioritized for monitoring?',ex:[
+    'Rank inputs by annual PFAS mass at typical rates and show where the evidence is weakest.',
+    'Which site conditions lead to the most leaching below the topsoil?',
+    'What happens on sandy soil with reclaimed water after 5 years of compost?',
+    'Does this field exceed the health limit?']}
+};
+function setRole(role){
+  document.body.dataset.role=role;
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.role===role)));
+  $('role-eyebrow').textContent=ROLE[role].eyebrow; $('question').textContent=ROLE[role].q;
+  $('examples').innerHTML=ROLE[role].ex.map(e=>`<button type="button">${e}</button>`).join('');
+  $('examples').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ $('q').value=b.textContent; ask(); }));
+  try{ localStorage.setItem('pic-role',role); }catch(e){}
+}
+
+/* ---------- natural-language front end: rule-based mapping, no generation ---------- */
+function parse(q){
+  const s=q.toLowerCase(); const got={}, chips=[];
+  const amend = /biosolid|sludge|cake/.test(s)?'biosolids':/compost/.test(s)?'compost':/manure|dairy|poultry|litter/.test(s)?'manure':/fertili[sz]er|urea|phosphate/.test(s)?'fertilizer':null;
+  const sw=/switch|instead of|replace|restrict|ban/.test(s);
+  if(sw){ const m=s.match(/(?:to|with|switch to)\s+(compost|manure|fertili[sz]er)/); if(m){ got.repl=m[1].startsWith('fert')?'fertilizer':m[1]; }
+    if(/share|remain|fraction|how much of|ban|restrict/.test(s)){ got.amend='biosolids'; got.scenario='restrict'; }
+    else if(got.repl){ got.amend=got.repl; } else if(amend){ got.amend=amend; } }
+  else if(amend){ got.amend=amend; }
+  if(/irrigation|deposition|background/.test(s) && /share|how much of|fraction|comes from/.test(s) && !got.scenario) got.scenario='background';
+  const rm=s.match(/(\d+(?:\.\d+)?)\s*(?:dry\s*)?(?:t|tons?|tonnes?)\s*(?:\/|per)\s*(ha|hectare|acre)/); if(rm){ let v=+rm[1]; if(rm[2]==='acre') v*=2.471; got.rate=+v.toFixed(2); }
+  const ym=s.match(/(\d+)\s*(?:years?|yrs?)/); if(ym) got.years=Math.max(1,Math.min(50,+ym[1]));
+  if(/sand/.test(s)) got.soil='sandy'; else if(/clay/.test(s)) got.soil='clay'; else if(/loam|silt/.test(s)) got.soil='loam';
+  if(/reclaimed|effluent|recycled/.test(s)) got.irrig='reclaimed'; else if(/groundwater|well/.test(s)) got.irrig='ground'; else if(/river|surface water|canal/.test(s)) got.irrig='surface'; else if(/rain-?fed|no irrigation|dryland/.test(s)) got.irrig='none';
+  got.intent = /safe|health|cancer|sick|illegal|lawsuit|liable|compliant|compliance|limit|exceed/.test(s)?'out'
+    : /rank|prioriti|evidence|weakest|which site|leach/.test(s)?'priority'
+    : got.scenario==='restrict'||/share|remain|fraction|how much of/.test(s)?'share'
+    : /which|least|lowest|compare|best/.test(s)?'compare':'accumulate';
+  return got;
+}
+function ask(){
+  const q=$('q').value.trim(); if(!q) return;
+  const tr=$('transcript'); tr.innerHTML='';
+  const u=document.createElement('div'); u.className='msg user'; u.textContent=q; tr.appendChild(u);
+  const p=parse(q);
+  const sys=document.createElement('div'); sys.className='msg sys';
+  if(p.intent==='out'){
+    sys.innerHTML=`<div><b>Outside this tool's scope.</b> The comparator estimates PFAS mass input and topsoil accumulation. It does not assess health risk or regulatory compliance. For those questions, see the project's agriculture end-use guidance and your state agency. The mass-input and fate numbers below are still available for the inputs you described.</div><div class="badge redirect"><i></i>Redirected, no estimate given</div>`;
+    tr.appendChild(sys); return;
+  }
+  // apply parsed values, note defaults
+  const applied=[], defaults=[];
+  const set=(id,val,label)=>{ if(val!=null){ $(id).value=val; applied.push(label+': '+val); } else { defaults.push(label+': '+$(id).value+' (kept)'); } };
+  set('amend',p.amend,'input');
+  if(p.amend&&p.rate==null&&p.scenario!=='restrict'){ $('rate').value=INPUTS[p.amend].rate; applied.push('rate: '+INPUTS[p.amend].rate+' (typical)'); } else set('rate',p.rate,'rate t/ha/yr');
+  set('years',p.years,'years'); set('soil',p.soil,'soil'); set('irrig',p.irrig,'irrigation'); if(p.repl) set('repl',p.repl,'replacement');
+  render();
+  const {st,sim}=last; const a=INPUTS[st.amend];
+  let ans='';
+  if(p.scenario==='background'){ ans=`For ${a.label.toLowerCase()} at ${st.rate} dry t/ha/yr with ${IRRIG[st.irrig].label.toLowerCase()} irrigation, about ${pc(1-sim.p.share[1])} of the annual PFAS input comes from irrigation water and atmospheric deposition rather than the amendment (median; ${pc(1-sim.p.share[2])} to ${pc(1-sim.p.share[0])}). That share is what no amendment choice can remove.`; }
+  else if(p.intent==='share'){ const sc=shareScenarios(st); ans=`Replacing biosolids with ${INPUTS[st.repl].label.toLowerCase()} leaves about ${pc(sc.remain[1])} of today's annual PFAS input (${pc(sc.remain[0])} to ${pc(sc.remain[2])}), or ${fmt(sc.resT[1])} mg/ha/yr. Irrigation water and deposition make up the part that no amendment choice removes. See the utility panel for the breakdown.`; setRole('utility'); }
+  else if(p.intent==='compare'){ const rows=Object.keys(INPUTS).map(k=>({k,p:inputAtTypical(k).p})).sort((x,y)=>x.p[1]-y.p[1]); ans=`At typical rates, ${INPUTS[rows[0].k].label.toLowerCase()} adds the least PFAS per year (median ${fmt(rows[0].p[1])} mg/ha/yr) and ${INPUTS[rows[3].k].label.toLowerCase()} the most (median ${fmt(rows[3].p[1])} mg/ha/yr). The ranges overlap for the middle two, so the ranking between them is not settled by current data.`; }
+  else if(p.intent==='priority'){ ans=`Ranked by annual mass at typical rates, biosolids lead, then compost, manure, and fertilizer. The evidence base is strong for biosolids and limited for fertilizer, where fewer than 50 records exist. On site conditions, soil organic carbon and water-table depth explain most of the variation in retention, so sandy, shallow-water-table fields are the priority for leaching monitoring.`; setRole('regulator'); }
+  else { ans=`${a.label} at ${st.rate} dry t/ha/yr on ${SOIL[st.soil].label.toLowerCase()} soil with ${IRRIG[st.irrig].label.toLowerCase()} irrigation adds a median ${fmt(sim.p.inp[1])} mg PFAS/ha/yr. After ${st.years} years the topsoil concentration is about ${fmt(sim.p.soil[1])} ng/g, with a 90% range of ${fmt(sim.p.soil[0])} to ${fmt(sim.p.soil[2])} ng/g. The largest uncertainty is ${sim.unc.slice().sort((x,y)=>y.v-x.v)[0].k.toLowerCase()}.`; }
+  sys.innerHTML=`<div class="hint">Understood as</div><div class="chips">${applied.map(c=>`<span class="chip">${c}</span>`).join('')}${defaults.map(c=>`<span class="chip def">${c}</span>`).join('')}</div><div>${ans}</div><div class="badge"><i></i>Computed by the calculator from the inputs above</div>`;
+  tr.appendChild(sys);
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>setRole(b.dataset.role)));
+$('form').addEventListener('input',render);
+$('form').addEventListener('submit',e=>e.preventDefault());
+$('ask').addEventListener('click',ask);
+$('q').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); ask(); } });
+let role='farmer'; try{ role=localStorage.getItem('pic-role')||'farmer'; if(!ROLE[role]) role='farmer'; }catch(e){}
+setRole(role); render();
+})();
+</script>
+
+</body>
+</html>
